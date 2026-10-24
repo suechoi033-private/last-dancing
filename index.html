@@ -5,18 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>묘비명 남기기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --primary: #3182f6; --primary-strong: #2272eb;
     --canvas: #ffffff; --foreground: #191f28; --body: #4e5968; --muted: #8b95a1;
     --surface: #f2f4f6; --border: #e5e8eb; --on-primary: #ffffff;
     --weak-bg: #e8f3ff; --weak-fg: #1b64da; --danger: #e42939;
+    --node-friend: #c9e2ff; --node-far: #e5e8eb; --node-out: #f2f4f6;
   }
   /* 다크 모드는 TDS 공식 값이 아닌 로컬 확장 */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --canvas: #17171c; --foreground: #f9fafb; --body: #d1d6db; --muted: #8b95a1;
       --surface: #26262c; --border: #333d4b; --weak-bg: #19264a; --weak-fg: #90c2ff;
+      --node-friend: #1957c2; --node-far: #4e5968; --node-out: #333d4b;
     }
   }
   * { box-sizing: border-box; }
@@ -31,14 +34,16 @@
     width: 100%; max-width: 480px; padding: 32px 24px 200px;
     display: flex; flex-direction: column; gap: 32px;
   }
+  .view { display: flex; flex-direction: column; gap: 32px; }
 
+  header .top { display: flex; justify-content: space-between; align-items: center; }
   header .brand {
     display: inline-block; padding: 2px 8px; border-radius: 6px;
     background: var(--weak-bg); color: var(--weak-fg);
     font-size: 13px; line-height: 19.5px; font-weight: 600;
   }
-  header h1 { margin: 16px 0 8px; font-size: 26px; line-height: 35px; font-weight: 700; }
-  header p { margin: 0; color: var(--body); font-size: 17px; line-height: 25.5px; }
+  header h1 { margin: 16px 0 8px; font-size: 26px; line-height: 35px; font-weight: 700; word-break: keep-all; }
+  header p { margin: 0; color: var(--body); font-size: 17px; line-height: 25.5px; word-break: keep-all; }
 
   .memorial { display: flex; flex-direction: column; gap: 12px; }
   .stone {
@@ -55,9 +60,8 @@
   .stone .rip { color: var(--muted); font-size: 13px; line-height: 19.5px; letter-spacing: .2em; }
 
   .song { display: flex; align-items: center; gap: 12px; min-width: 0; }
-  .song img, .song .art {
-    flex: none; width: 48px; height: 48px; border-radius: 10px; object-fit: cover;
-    background: var(--weak-bg); color: var(--weak-fg); display: grid; place-items: center; font-size: 20px;
+  .song img {
+    flex: none; width: 48px; height: 48px; border-radius: 10px; object-fit: cover; background: var(--weak-bg);
   }
   .song .meta { flex: 1; min-width: 0; }
   .song .title { font-size: 15px; line-height: 22.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -67,25 +71,24 @@
     background: var(--surface); border-radius: 16px; padding: 16px;
     display: flex; flex-direction: column; gap: 12px;
   }
-  .bgm .label { font-size: 13px; line-height: 19.5px; color: var(--muted); }
-  .play {
-    flex: none; width: 44px; height: 44px; padding: 0; border-radius: 22px; font-size: 16px;
-  }
-  .bgm .player { aspect-ratio: 16 / 9; width: 100%; border: 0; border-radius: 10px; background: #000; }
-  .bgm .links { display: flex; justify-content: space-between; gap: 12px; }
-  .bgm a, .text-btn {
+  .label { font-size: 13px; line-height: 19.5px; color: var(--muted); }
+  .play { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 22px; font-size: 16px; }
+  .player { aspect-ratio: 16 / 9; width: 100%; border: 0; border-radius: 10px; background: #000; }
+  .links { display: flex; justify-content: space-between; gap: 12px; }
+  .links a, .text-btn {
     color: var(--weak-fg); font-size: 14px; line-height: 21px; font-weight: 600; text-decoration: none;
-    background: none; border: none; padding: 0; height: auto; cursor: pointer; font-family: inherit;
+    background: none; border: none; padding: 0; height: auto; cursor: pointer; font-family: inherit; border-radius: 4px;
   }
+  .text-btn.muted { color: var(--muted); font-weight: 400; }
 
   form { display: flex; flex-direction: column; gap: 24px; }
-  .field label {
+  .field > label, .field > .field-label {
     display: flex; justify-content: space-between; margin-bottom: 8px;
     color: var(--body); font-size: 14px; line-height: 21px; font-weight: 600;
   }
-  .field .count { color: var(--muted); font-weight: 400; }
-  .field .help { margin: 8px 0 0; font-size: 13px; line-height: 19.5px; color: var(--muted); }
-  .field .help.error { color: var(--danger); }
+  .count { color: var(--muted); font-weight: 400; }
+  .help { margin: 8px 0 0; font-size: 13px; line-height: 19.5px; color: var(--muted); word-break: keep-all; }
+  .help.error { color: var(--danger); }
   input, textarea {
     width: 100%; padding: 14px 16px; font: inherit; font-size: 17px; line-height: 25.5px;
     color: var(--foreground); background: var(--surface);
@@ -96,6 +99,14 @@
   input.invalid { border-color: var(--danger); }
   textarea { resize: none; height: 104px; }
 
+  /* 세그먼트 컨트롤: TDS에 이름만 있고 수치 미검증 → 로컬 확장 */
+  .segmented { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--surface); }
+  .segmented button {
+    flex: 1; height: 40px; padding: 0 8px; border-radius: 10px; font-size: 15px;
+    background: transparent; color: var(--muted);
+  }
+  .segmented button[aria-pressed="true"] { background: var(--canvas); color: var(--foreground); }
+
   .results { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; }
   .results li button {
     width: 100%; height: auto; padding: 8px; border-radius: 14px; text-align: left;
@@ -105,14 +116,29 @@
   .picked { margin-top: 8px; padding: 8px; border-radius: 14px; background: var(--weak-bg); }
 
   section h2 { margin: 0 0 12px; font-size: 17px; line-height: 25.5px; font-weight: 700; }
-  .gifts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
   .card { background: var(--surface); border-radius: 16px; padding: 16px; }
-  .card .label { font-size: 13px; line-height: 19.5px; color: var(--muted); }
   .card .text { margin-top: 4px; font-size: 17px; line-height: 25.5px; color: var(--body); white-space: pre-wrap; word-break: keep-all; }
+  .card .text.locked-text { color: var(--muted); font-size: 15px; line-height: 22.5px; }
   .locked {
-    border: 1px dashed var(--grey300, #d1d6db); border-radius: 16px; padding: 24px 16px;
+    border: 1px dashed #d1d6db; border-radius: 16px; padding: 24px 16px;
     text-align: center; color: var(--muted); font-size: 15px; line-height: 22.5px; word-break: keep-all;
   }
+  .empty { color: var(--muted); font-size: 15px; line-height: 22.5px; text-align: center; padding: 16px 0; margin: 0; }
+
+  .graph-wrap { display: flex; flex-direction: column; gap: 12px; }
+  #graph { width: 100%; height: auto; display: block; }
+  #graph line { stroke: var(--border); stroke-width: 2; }
+  #graph line.open { stroke: #90c2ff; }
+  #graph line.closed { stroke-dasharray: 4 4; }
+  #graph .node { cursor: pointer; }
+  #graph .node:focus-visible { outline: none; }
+  #graph .node:focus-visible circle { stroke: #8ac0ff; stroke-width: 3; }
+  #graph text { font-family: inherit; fill: var(--body); font-size: 11px; text-anchor: middle; }
+  #graph .initial { font-size: 14px; font-weight: 700; fill: var(--foreground); dominant-baseline: central; }
+  #graph .me .initial { fill: #ffffff; }
+  .legend { display: flex; gap: 16px; justify-content: center; font-size: 13px; line-height: 19.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 5px; margin-right: 4px; vertical-align: middle; }
 
   .cta {
     position: fixed; left: 0; right: 0; bottom: 0;
@@ -128,6 +154,8 @@
     transition: transform .1s;
   }
   button.weak { background: var(--weak-bg); color: var(--weak-fg); }
+  /* 카카오 로그인 버튼: 카카오 브랜드 가이드 색상 */
+  button.kakao { background: #fee500; color: rgba(0, 0, 0, .85); display: flex; align-items: center; justify-content: center; gap: 8px; }
   button:active:not(:disabled) { transform: scale(0.96); }
   button:focus-visible { outline: none; box-shadow: 0 0 0 1px #8ac0ff, 0 0 0 3px #b8d9ff; }
   button:disabled { opacity: .4; cursor: default; }
@@ -137,106 +165,233 @@
 </head>
 <body>
 <main>
-  <header>
-    <span class="brand">묘비명 남기기</span>
-    <h1 id="headline">어떻게 기억되고 싶나요?</h1>
-    <p id="subline">한 줄이면 충분해요. 묘비에 새길 말과 함께 들을 노래를 남겨주세요.</p>
-  </header>
-
-  <section class="memorial" aria-live="polite">
+  <!-- 첫 화면 -->
+  <div class="view" id="viewLanding" hidden>
+    <header>
+      <span class="brand">묘비명 남기기</span>
+      <h1>어떻게 기억되고 싶나요?</h1>
+      <p>내 묘비명과 함께 들을 노래를 남기고, 친구에게 묘비명을 받아보세요. 서로 남겨줘야 열려요.</p>
+    </header>
     <div class="stone">
-      <div class="name" id="previewName"></div>
-      <div class="epitaph" id="previewEpitaph"></div>
+      <div class="name">홍길동</div>
+      <div class="epitaph">잘 놀다 갑니다.</div>
       <div class="rip">REST IN PEACE</div>
     </div>
-    <div class="bgm" id="bgmCard" hidden>
-      <div class="label">함께 들어주세요</div>
-      <div class="song">
-        <img id="bgmArt" alt="">
-        <div class="meta">
-          <div class="title" id="bgmTitle"></div>
-          <div class="artist" id="bgmArtist"></div>
+  </div>
+
+  <!-- 초대 링크로 들어온 친구 -->
+  <div class="view" id="viewInvite" hidden>
+    <header>
+      <span class="brand">묘비명 남기기</span>
+      <h1 id="inviteHeadline"></h1>
+      <p id="inviteSubline"></p>
+    </header>
+    <div id="inviteStage"></div>
+    <form id="inviteForm" hidden>
+      <div class="field">
+        <label for="giftText"><span id="giftLabel">묘비명</span> <span class="count" id="giftCount">0 / 50</span></label>
+        <textarea id="giftText" maxlength="50" placeholder="늘 먼저 웃어주던 사람."></textarea>
+      </div>
+      <div class="field">
+        <div class="field-label">누구까지 볼 수 있나요?</div>
+        <div class="segmented" id="giftVisibility" role="group" aria-label="공개 범위">
+          <button type="button" data-value="recipient">받는 사람만</button>
+          <button type="button" data-value="fof">친구의 친구까지</button>
         </div>
-        <button type="button" class="play" id="playBtn" aria-label="미리듣기 재생">▶</button>
+        <p class="help" id="giftVisibilityHelp"></p>
       </div>
-      <audio id="audio" preload="none"></audio>
-      <iframe class="player" id="bgmPlayer" title="BGM 재생" hidden
-        allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen
-        referrerpolicy="strict-origin-when-cross-origin"></iframe>
-      <div class="links">
-        <span class="label" id="previewNote">30초 미리듣기</span>
-        <a id="fullLink" target="_blank" rel="noopener">유튜브에서 전곡 듣기 ›</a>
-      </div>
-    </div>
-    <div class="locked" id="locked" hidden>🔒 <span id="lockedText"></span></div>
-    <div class="card" id="myGift" hidden>
-      <div class="label" id="myGiftLabel"></div>
+    </form>
+    <div class="card" id="myGiftCard" hidden>
+      <div class="label">내가 남겨준 묘비명</div>
       <div class="text" id="myGiftText"></div>
     </div>
-  </section>
+  </div>
 
-  <form id="friendForm" hidden>
-    <div class="field">
-      <label for="fromName">내 이름</label>
-      <input id="fromName" maxlength="20" placeholder="친구가 알아볼 이름" autocomplete="name">
-    </div>
-    <div class="field">
-      <label for="friendEpitaph"><span id="friendEpitaphLabel">묘비명</span> <span class="count" id="friendCount">0 / 50</span></label>
-      <textarea id="friendEpitaph" maxlength="50" placeholder="늘 먼저 웃어주던 사람."></textarea>
-    </div>
-  </form>
-
-  <section id="inbox" hidden>
-    <h2>친구들이 남겨준 묘비명</h2>
-    <ul class="gifts" id="gifts"></ul>
-  </section>
-
-  <form id="form">
-    <div class="field">
-      <label for="name">이름</label>
-      <input id="name" maxlength="20" placeholder="홍길동" autocomplete="name">
-    </div>
-    <div class="field">
-      <label for="epitaph">묘비명 <span class="count" id="count">0 / 50</span></label>
-      <textarea id="epitaph" maxlength="50" placeholder="잘 놀다 갑니다."></textarea>
-    </div>
-    <div class="field">
-      <label for="search">좋아하는 BGM</label>
-      <input id="search" type="search" placeholder="곡 제목이나 가수 검색" autocomplete="off">
-      <p class="help" id="searchHelp">검색해서 고르면 바로 들어볼 수 있어요.</p>
-      <ul class="results" id="results"></ul>
-      <div class="picked song" id="picked" hidden>
-        <img id="pickedArt" alt="">
-        <div class="meta">
-          <div class="title" id="pickedTitle"></div>
-          <div class="artist" id="pickedArtist"></div>
-        </div>
-        <button type="button" class="text-btn" id="clearSong">빼기</button>
+  <!-- 로그인한 나 -->
+  <div class="view" id="viewHome" hidden>
+    <header>
+      <div class="top">
+        <span class="brand">묘비명 남기기</span>
+        <button type="button" class="text-btn muted" id="logout">로그아웃</button>
       </div>
+      <h1 id="homeHeadline">어떻게 기억되고 싶나요?</h1>
+      <p id="homeSubline">한 줄이면 충분해요. 묘비에 새길 말과 함께 들을 노래를 남겨주세요.</p>
+    </header>
+
+    <div class="segmented" id="tabs" role="tablist">
+      <button type="button" data-tab="mine" aria-pressed="true">내 묘비명</button>
+      <button type="button" data-tab="graph" aria-pressed="false">관계도</button>
     </div>
-    <div class="field">
-      <label for="bgmUrlInput">전곡 유튜브 링크 <span class="count">선택</span></label>
-      <input id="bgmUrlInput" inputmode="url" placeholder="https://youtu.be/...">
-      <p class="help" id="bgmHelp">넣으면 미리듣기 대신 유튜브로 전곡이 재생돼요.</p>
+
+    <div class="view" id="tabMine">
+      <section class="memorial" aria-live="polite">
+        <div class="stone">
+          <div class="name" id="previewName"></div>
+          <div class="epitaph" id="previewEpitaph"></div>
+          <div class="rip">REST IN PEACE</div>
+        </div>
+        <div class="bgm" id="bgmCard" hidden>
+          <div class="label">함께 들어주세요</div>
+          <div class="song">
+            <img id="bgmArt" alt="">
+            <div class="meta">
+              <div class="title" id="bgmTitle"></div>
+              <div class="artist" id="bgmArtist"></div>
+            </div>
+            <button type="button" class="play" id="playBtn" aria-label="미리듣기 재생">▶</button>
+          </div>
+          <iframe class="player" id="bgmPlayer" title="BGM 재생" hidden
+            allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen
+            referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          <div class="links">
+            <span class="label" id="previewNote">30초 미리듣기</span>
+            <a id="fullLink" target="_blank" rel="noopener">유튜브에서 전곡 듣기 ›</a>
+          </div>
+        </div>
+      </section>
+
+      <form id="form">
+        <div class="field">
+          <label for="name">이름</label>
+          <input id="name" maxlength="20" placeholder="홍길동" autocomplete="name">
+        </div>
+        <div class="field">
+          <label for="epitaph">묘비명 <span class="count" id="count">0 / 50</span></label>
+          <textarea id="epitaph" maxlength="50" placeholder="잘 놀다 갑니다."></textarea>
+        </div>
+        <div class="field">
+          <div class="field-label">누구까지 볼 수 있나요?</div>
+          <div class="segmented" id="myVisibility" role="group" aria-label="공개 범위">
+            <button type="button" data-value="me">나만</button>
+            <button type="button" data-value="friends">친구</button>
+            <button type="button" data-value="fof">친구의 친구</button>
+          </div>
+          <p class="help" id="myVisibilityHelp"></p>
+        </div>
+        <div class="field">
+          <label for="search">좋아하는 BGM</label>
+          <input id="search" type="search" placeholder="곡 제목이나 가수 검색" autocomplete="off">
+          <p class="help" id="searchHelp">검색해서 고르면 바로 들어볼 수 있어요.</p>
+          <ul class="results" id="results"></ul>
+          <div class="picked song" id="picked" hidden>
+            <img id="pickedArt" alt="">
+            <div class="meta">
+              <div class="title" id="pickedTitle"></div>
+              <div class="artist" id="pickedArtist"></div>
+            </div>
+            <button type="button" class="text-btn" id="clearSong">빼기</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="bgmUrlInput">전곡 유튜브 링크 <span class="count">선택</span></label>
+          <input id="bgmUrlInput" inputmode="url" placeholder="https://youtu.be/...">
+          <p class="help" id="bgmHelp">넣으면 미리듣기 대신 유튜브로 전곡이 재생돼요.</p>
+        </div>
+      </form>
+
+      <section>
+        <h2>친구들이 남겨준 묘비명</h2>
+        <ul class="list" id="inbox"></ul>
+        <p class="empty" id="inboxEmpty">아직 없어요. 친구에게 묘비명을 부탁해 보세요.</p>
+      </section>
     </div>
-  </form>
+
+    <div class="view" id="tabGraph" hidden>
+      <div class="graph-wrap">
+        <svg id="graph" viewBox="0 0 340 340" role="img" aria-label="묘비명으로 이어진 사람들"></svg>
+        <div class="legend">
+          <span><i style="background: var(--primary)"></i>나</span>
+          <span><i style="background: var(--node-friend)"></i>친구</span>
+          <span><i style="background: var(--node-far)"></i>친구의 친구</span>
+        </div>
+        <p class="help" id="graphHelp" style="text-align: center"></p>
+      </div>
+      <section>
+        <h2 id="detailTitle"></h2>
+        <div id="detailMemorial"></div>
+      </section>
+      <section id="detailEdgesSection">
+        <h2>주고받은 묘비명</h2>
+        <ul class="list" id="detailEdges"></ul>
+      </section>
+    </div>
+  </div>
 </main>
 
-<div class="cta">
-  <p class="status" id="status"></p>
-  <button type="button" class="weak" id="share" disabled>친구에게 공유하기</button>
-  <button type="submit" form="form" id="save" disabled>묘비명 남기기</button>
+<div class="cta" id="ctaLanding" hidden>
+  <p class="status" id="statusLanding"></p>
+  <button type="button" class="kakao" data-login>
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3C6.48 3 2 6.58 2 11c0 2.84 1.86 5.33 4.66 6.75l-.95 3.48c-.08.3.26.54.52.37l4.13-2.73c.54.07 1.08.13 1.64.13 5.52 0 10-3.58 10-8S17.52 3 12 3z"/></svg>
+    카카오 로그인
+  </button>
+</div>
+<div class="cta" id="ctaInvite" hidden>
+  <p class="status" id="statusInvite"></p>
+  <button type="button" class="kakao" id="inviteLogin" data-login hidden>
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3C6.48 3 2 6.58 2 11c0 2.84 1.86 5.33 4.66 6.75l-.95 3.48c-.08.3.26.54.52.37l4.13-2.73c.54.07 1.08.13 1.64.13 5.52 0 10-3.58 10-8S17.52 3 12 3z"/></svg>
+    카카오 로그인하고 남겨주기
+  </button>
   <button type="button" id="give" hidden disabled>묘비명 남겨주기</button>
-  <button type="button" id="sendBack" hidden></button>
-  <button type="button" class="weak" id="makeMine" hidden>나도 묘비명 남기기</button>
+  <button type="button" class="weak" id="goGraph" hidden>관계도 보기</button>
+  <button type="button" id="goHome" hidden>나도 묘비명 남기기</button>
+</div>
+<div class="cta" id="ctaHome" hidden>
+  <p class="status" id="statusHome"></p>
+  <button type="button" class="weak" id="share">친구에게 묘비명 부탁하기</button>
+  <button type="submit" form="form" id="save" disabled>저장하기</button>
+</div>
+<div class="cta" id="ctaGraph" hidden>
+  <p class="status" id="statusGraph"></p>
+  <button type="button" class="weak" id="backToMe" hidden>나로 돌아오기</button>
 </div>
 
 <script>
-  const KEY = "last-dancing-epitaph";
+  const SUPABASE_URL = "https://vgmijluijknwrpwkibvs.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_srZobcytEYzu1nbLjZ6oAg_JvjFrtpb";
+  const LEGACY_KEY = "last-dancing-epitaph";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const $ = (id) => document.getElementById(id);
-  const nameEl = $("name"), epitaphEl = $("epitaph"), bgmUrlEl = $("bgmUrlInput"), audio = $("audio");
-  let song = null; // { title, artist, art, preview }
+  const audio = new Audio();
+  const baseUrl = () => location.origin + location.pathname;
+
+  let me = null;          // 로그인 사용자
+  let profile = null;     // 내 people 행
+  let song = null;        // { title, artist, art, preview }
+  let graph = null;       // ld_graph 결과
   let currentVideo = null;
+
+  const VIS_HELP = {
+    me: "나만 볼 수 있어요. 친구가 묘비명을 남겨줘도 열리지 않아요.",
+    friends: "나에게 묘비명을 남겨준 친구만 볼 수 있어요.",
+    fof: "나에게 남겨준 친구, 그리고 묘비명을 하나라도 남긴 친구의 친구까지 볼 수 있어요.",
+    recipient: "받는 사람만 볼 수 있어요.",
+    giftFof: "받는 사람의 친구의 친구까지, 묘비명을 하나라도 남긴 사람에게 보여요.",
+  };
+
+  // ───── 공통 ─────
+  function showView(name) {
+    for (const v of ["Landing", "Invite", "Home"]) $(`view${v}`).hidden = v !== name;
+    for (const c of ["Landing", "Invite", "Home", "Graph"]) $(`cta${c}`).hidden = true;
+    $(`cta${name}`).hidden = false;
+  }
+  function status(view, text) { $(`status${view}`).textContent = text || ""; }
+
+  function segmented(el, value, onChange) {
+    const set = (v) => {
+      el.dataset.value = v;
+      el.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.value === v)));
+      onChange && onChange(v);
+    };
+    el.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => set(b.dataset.value)));
+    set(value);
+    return set;
+  }
+
+  async function login() {
+    const { error } = await sb.auth.signInWithOAuth({ provider: "kakao", options: { redirectTo: location.href } });
+    if (error) alert("카카오 로그인을 시작하지 못했어요: " + error.message);
+  }
+  document.querySelectorAll("[data-login]").forEach((b) => b.addEventListener("click", login));
 
   function youtubeId(url) {
     try {
@@ -250,18 +405,99 @@
       return id && /^[\w-]{11}$/.test(id) ? id : null;
     } catch { return null; }
   }
+  const youtubeSearch = (s) => `https://www.youtube.com/results?search_query=${encodeURIComponent(`${s.artist} ${s.title}`)}`;
 
-  // 공유 링크: 내용을 URL # 뒤에 담아 서버 없이 전달
-  function encode(data) {
-    const bytes = new TextEncoder().encode(JSON.stringify(data));
-    return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  }
-  function decode(str) {
-    const bin = atob(str.replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
+  function togglePlay(btn, preview) {
+    if (audio.src === preview && !audio.paused) { audio.pause(); return; }
+    audio.src = preview;
+    audio.play();
+    audio.onpause = audio.onended = () => { btn.textContent = "▶"; };
+    document.querySelectorAll(".play").forEach((b) => (b.textContent = "▶"));
+    btn.textContent = "❚❚";
   }
 
-  // 노래 검색: iTunes Search API (키 불필요, 30초 미리듣기 제공). KR 스토어는 음악 결과가 없어 US 사용
+  // 다른 사람 묘비 + BGM 카드 (읽기 전용)
+  function memorialEl({ name, epitaph, song, bgmUrl, lockText }) {
+    const wrap = document.createElement("div");
+    wrap.className = "memorial";
+    const stone = document.createElement("div");
+    stone.className = "stone";
+    stone.innerHTML = `<div class="name"></div><div class="epitaph"></div><div class="rip">REST IN PEACE</div>`;
+    stone.querySelector(".name").textContent = name;
+    const ep = stone.querySelector(".epitaph");
+    ep.textContent = epitaph || `🔒 ${lockText}`;
+    ep.classList.toggle("placeholder", !epitaph);
+    wrap.append(stone);
+
+    const id = bgmUrl ? youtubeId(bgmUrl) : null;
+    if (song || id) {
+      const card = document.createElement("div");
+      card.className = "bgm";
+      card.innerHTML = `<div class="label">함께 들어주세요</div>`;
+      if (song) {
+        const row = document.createElement("div");
+        row.className = "song";
+        row.innerHTML = `<img alt=""><div class="meta"><div class="title"></div><div class="artist"></div></div>`;
+        row.querySelector("img").src = song.art;
+        row.querySelector(".title").textContent = song.title;
+        row.querySelector(".artist").textContent = song.artist;
+        if (!id) {
+          const play = document.createElement("button");
+          play.type = "button"; play.className = "play"; play.textContent = "▶";
+          play.setAttribute("aria-label", "미리듣기 재생");
+          play.addEventListener("click", () => togglePlay(play, song.preview));
+          row.append(play);
+        }
+        card.append(row);
+      }
+      if (id) {
+        const f = document.createElement("iframe");
+        f.className = "player"; f.title = "BGM 재생"; f.allowFullscreen = true;
+        f.allow = "autoplay; encrypted-media; picture-in-picture";
+        f.referrerPolicy = "strict-origin-when-cross-origin";
+        f.src = `https://www.youtube.com/embed/${id}`;
+        card.append(f);
+      }
+      const links = document.createElement("div");
+      links.className = "links";
+      links.innerHTML = `<span class="label"></span><a target="_blank" rel="noopener"></a>`;
+      links.querySelector(".label").textContent = id ? "" : "30초 미리듣기";
+      links.querySelector("a").href = id ? `https://www.youtube.com/watch?v=${id}` : youtubeSearch(song);
+      links.querySelector("a").textContent = id ? "유튜브에서 보기 ›" : "유튜브에서 전곡 듣기 ›";
+      card.append(links);
+      wrap.append(card);
+    }
+    return wrap;
+  }
+
+  async function sendShare(view, lines, link) {
+    const text = `${lines.join("\n")}\n\n${link}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "묘비명 남기기", text: lines.join("\n"), url: link });
+        status(view, "공유했어요");
+        return;
+      } catch (e) { if (e.name === "AbortError") return; }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      status(view, "복사했어요. 카톡이나 메시지에 붙여넣어 보내주세요");
+    } catch {
+      prompt("아래 내용을 복사해서 보내주세요", text);
+    }
+  }
+
+  // 공개 범위에 막혀 안 보일 때 이유
+  function lockReason(node) {
+    if (!node.hasEpitaph) return "아직 묘비명을 쓰지 않았어요";
+    const gaveTo = graph && graph.edges.some((e) => e.from === graph.viewer && e.to === node.id);
+    if (gaveTo) return "나만 보기로 한 묘비명이에요";
+    if (node.dist === 1) return "묘비명을 남겨주면 볼 수 있어요";
+    if (graph && !graph.viewerGave) return "누구에게든 묘비명을 하나 남기면 볼 수 있어요";
+    return "공개하지 않은 묘비명이에요";
+  }
+
+  // ───── 노래 검색 (iTunes Search API, 키 불필요. KR 스토어는 음악 결과가 없어 US 사용) ─────
   let searchTimer, searchSeq = 0;
   async function searchSongs(term) {
     const seq = ++searchSeq;
@@ -290,213 +526,350 @@
       $("searchHelp").classList.add("error");
     }
   }
-
   function pickSong(s) {
     song = s;
     $("search").value = "";
     $("results").innerHTML = "";
     $("searchHelp").textContent = "검색해서 고르면 바로 들어볼 수 있어요.";
-    render();
+    renderMine();
   }
 
-  function data() {
-    return { name: nameEl.value.trim(), epitaph: epitaphEl.value.trim(), song, bgmUrl: bgmUrlEl.value.trim() };
-  }
+  // ───── 내 묘비명 탭 ─────
+  const myForm = () => ({
+    display_name: $("name").value.trim() || "익명",
+    epitaph: $("epitaph").value.trim() || null,
+    epitaph_visibility: $("myVisibility").dataset.value,
+    song,
+    bgm_url: $("bgmUrlInput").value.trim() || null,
+  });
 
-  function renderPreview(d) {
-    $("previewName").textContent = d.name || "이름";
-    $("previewName").classList.toggle("placeholder", !d.name);
+  function renderMine() {
+    const d = myForm();
+    $("previewName").textContent = $("name").value.trim() || "이름";
+    $("previewName").classList.toggle("placeholder", !$("name").value.trim());
     $("previewEpitaph").textContent = d.epitaph || "여기에 묘비명이 새겨져요";
     $("previewEpitaph").classList.toggle("placeholder", !d.epitaph);
 
-    const id = d.bgmUrl ? youtubeId(d.bgmUrl) : null;
-    const s = d.song;
-    $("bgmCard").hidden = !s && !id;
-    $("bgmArt").hidden = !s;
-    if (s) $("bgmArt").src = s.art;
-    $("bgmTitle").textContent = s ? s.title : "유튜브 노래";
-    $("bgmArtist").textContent = s ? s.artist : "";
-    // 유튜브 링크가 있으면 전곡 재생, 없으면 30초 미리듣기
-    $("playBtn").hidden = !s || !!id;
-    $("previewNote").hidden = !s || !!id;
+    const id = d.bgm_url ? youtubeId(d.bgm_url) : null;
+    $("bgmCard").hidden = !song && !id;
+    $("bgmArt").hidden = !song;
+    if (song) $("bgmArt").src = song.art;
+    $("bgmTitle").textContent = song ? song.title : "유튜브 노래";
+    $("bgmArtist").textContent = song ? song.artist : "";
+    $("playBtn").hidden = $("previewNote").hidden = !song || !!id;
     $("bgmPlayer").hidden = !id;
-    if (s && !id && audio.src !== s.preview) { audio.pause(); audio.src = s.preview; }
     if (id) audio.pause();
     if (id !== currentVideo) {
       currentVideo = id;
       $("bgmPlayer").src = id ? `https://www.youtube.com/embed/${id}` : "about:blank";
     }
-    $("fullLink").href = id
-      ? `https://www.youtube.com/watch?v=${id}`
-      : `https://www.youtube.com/results?search_query=${encodeURIComponent(s ? `${s.artist} ${s.title}` : "")}`;
+    $("fullLink").href = id ? `https://www.youtube.com/watch?v=${id}` : song ? youtubeSearch(song) : "#";
     $("fullLink").textContent = id ? "유튜브에서 보기 ›" : "유튜브에서 전곡 듣기 ›";
-  }
 
-  $("playBtn").addEventListener("click", () => { audio.paused ? audio.play() : audio.pause(); });
-  audio.addEventListener("play", () => { $("playBtn").textContent = "❚❚"; $("playBtn").setAttribute("aria-label", "일시정지"); });
-  ["pause", "ended"].forEach((ev) => audio.addEventListener(ev, () => { $("playBtn").textContent = "▶"; $("playBtn").setAttribute("aria-label", "미리듣기 재생"); }));
-
-  function render() {
-    const d = data();
-    renderPreview(d);
     $("picked").hidden = !song;
     if (song) {
       $("pickedArt").src = song.art;
       $("pickedTitle").textContent = song.title;
       $("pickedArtist").textContent = song.artist;
     }
-    $("count").textContent = `${epitaphEl.value.length} / 50`;
-    const badUrl = d.bgmUrl && !youtubeId(d.bgmUrl);
-    bgmUrlEl.classList.toggle("invalid", badUrl);
-    $("bgmHelp").classList.toggle("error", badUrl);
+    $("count").textContent = `${$("epitaph").value.length} / 50`;
+    const badUrl = d.bgm_url && !id;
+    $("bgmUrlInput").classList.toggle("invalid", !!badUrl);
+    $("bgmHelp").classList.toggle("error", !!badUrl);
     $("bgmHelp").textContent = badUrl
       ? "유튜브 링크가 아닌 것 같아요. 주소를 다시 확인해 주세요."
       : "넣으면 미리듣기 대신 유튜브로 전곡이 재생돼요.";
-    $("save").disabled = $("share").disabled = !d.epitaph || badUrl;
+    $("save").disabled = !!badUrl;
   }
 
-  function save() {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(data()));
-      return true;
-    } catch { return false; }
-  }
-
-  const baseUrl = () => location.href.split("#")[0];
-
-  // 친구에게는 내 묘비명을 숨긴 채 보내고, 친구가 묘비명을 남겨줘야 열린다
-  function share() {
-    save();
-    const d = data();
-    return sendShare(
-      [`${d.name || "내"} 묘비명을 지어줘.`, "남겨주면 내가 스스로 쓴 묘비명을 보여줄게."],
-      `${baseUrl()}#m=${encode(d)}`,
-    );
-  }
-
-  async function sendShare(lines, link) {
-    // 내 컴퓨터 파일(file://)은 친구가 열 수 없으니, 웹에 올렸을 때만 링크를 넣는다
-    const online = location.protocol.startsWith("http");
-    const text = lines.join("\n") + (online ? `\n\n${link}` : "");
-
-    if (navigator.share) {
-      try {
-        await navigator.share(online ? { title: "묘비명 남기기", text: lines.join("\n"), url: link } : { title: "묘비명 남기기", text });
-        $("status").textContent = "공유했어요";
-        return;
-      } catch (e) { if (e.name === "AbortError") return; }
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-      $("status").textContent = "복사했어요. 카톡이나 메시지에 붙여넣어 보내주세요";
-    } catch {
-      prompt("아래 내용을 복사해서 보내주세요", text);
-    }
-  }
-
-  // 친구들이 나에게 남겨준 묘비명 (#r= 링크로 도착)
-  const GIFTS_KEY = "last-dancing-gifts";
-  function loadGifts() {
-    try { return JSON.parse(localStorage.getItem(GIFTS_KEY) || "[]"); } catch { return []; }
-  }
-  function receiveGift(g) {
-    if (!g || !g.epitaph) return;
-    const gifts = loadGifts();
-    if (!gifts.some((x) => x.from === g.from && x.epitaph === g.epitaph)) {
-      gifts.unshift(g);
-      try { localStorage.setItem(GIFTS_KEY, JSON.stringify(gifts)); } catch {}
-    }
-    history.replaceState(null, "", baseUrl());
-    $("status").textContent = `${g.from}님이 묘비명을 남겨줬어요`;
-  }
   function renderInbox() {
-    const gifts = loadGifts();
-    $("inbox").hidden = !gifts.length;
-    $("gifts").replaceChildren(...gifts.map((g) => {
+    const names = Object.fromEntries((graph?.nodes || []).map((n) => [n.id, n.name]));
+    const gifts = (graph?.edges || []).filter((e) => e.to === me.id);
+    $("inboxEmpty").hidden = gifts.length > 0;
+    $("inbox").replaceChildren(...gifts.map((g) => {
       const li = document.createElement("li");
       li.className = "card";
       li.innerHTML = `<div class="label"></div><div class="text"></div>`;
-      li.querySelector(".label").textContent = `${g.from}님이 남겨줌`;
-      li.querySelector(".text").textContent = g.epitaph;
+      li.querySelector(".label").textContent = `${names[g.from] || "누군가"}님이 남겨줌`;
+      li.querySelector(".text").textContent = g.body;
       return li;
     }));
   }
 
-  // 친구가 내 공유 링크로 들어온 경우: 먼저 묘비명을 남겨줘야 내 묘비명이 열린다
-  function showFriendView(owner) {
-    const who = owner.name || "친구";
-    const fromEl = $("fromName"), textEl = $("friendEpitaph");
-    $("headline").textContent = `${who}님에게 묘비명을 남겨주세요`;
-    $("subline").textContent = `${who}님을 어떻게 기억할지 한 줄로 적어주세요.`;
-    $("lockedText").textContent = `남겨주면 ${who}님이 스스로 쓴 묘비명을 볼 수 있어요`;
-    $("friendEpitaphLabel").textContent = `${who}님의 묘비명`;
-    $("form").hidden = $("share").hidden = $("save").hidden = true;
-    $("friendForm").hidden = $("locked").hidden = $("give").hidden = false;
+  async function saveProfile(e) {
+    e.preventDefault();
+    $("save").disabled = true;
+    const { error } = await sb.from("people").update({ ...myForm(), updated_at: new Date().toISOString() }).eq("id", me.id);
+    $("save").disabled = false;
+    if (error) { status("Home", "저장하지 못했어요. 잠시 후 다시 시도해 주세요"); return; }
+    try { localStorage.removeItem(LEGACY_KEY); } catch {}
+    status("Home", "저장했어요");
+    await loadGraph(me.id);
+  }
 
+  // ───── 관계도 탭 ─────
+  async function loadGraph(center) {
+    const { data, error } = await sb.rpc("ld_graph", { center });
+    if (error) {
+      status("Graph", error.message.includes("too far") ? "너무 멀리 있는 사람이에요" : "관계도를 불러오지 못했어요");
+      return false;
+    }
+    graph = data;
+    if (center === me.id) renderInbox();
+    drawGraph();
+    return true;
+  }
+
+  function drawGraph() {
+    const svg = $("graph");
+    const NS = "http://www.w3.org/2000/svg";
+    const C = 170, R1 = 92, R2 = 150;
+    const nodes = graph.nodes.map((n) => ({ ...n }));
+    const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
+    const linked = (a, b) => graph.edges.some((e) => (e.from === a && e.to === b) || (e.from === b && e.to === a));
+    const center = nodes.find((n) => n.ring === 0);
+    const r1 = nodes.filter((n) => n.ring === 1);
+    const r2 = nodes.filter((n) => n.ring === 2);
+
+    center.x = C; center.y = C;
+    const step = (2 * Math.PI) / Math.max(r1.length, 1);
+    r1.forEach((n, i) => {
+      n.angle = -Math.PI / 2 + step * i;
+      n.x = C + R1 * Math.cos(n.angle); n.y = C + R1 * Math.sin(n.angle);
+    });
+    // 친구의 친구는 이어진 친구 바깥쪽 부채꼴에 모아 둔다
+    const groups = new Map();
+    r2.forEach((n) => {
+      const parent = r1.find((p) => linked(p.id, n.id)) || r1[0];
+      if (!groups.has(parent)) groups.set(parent, []);
+      groups.get(parent).push(n);
+    });
+    groups.forEach((kids, parent) => {
+      const spread = Math.min(step, 1.4);
+      kids.forEach((n, j) => {
+        const a = parent.angle + spread * ((j + 1) / (kids.length + 1) - 0.5);
+        n.x = C + R2 * Math.cos(a); n.y = C + R2 * Math.sin(a);
+      });
+    });
+
+    svg.replaceChildren();
+    for (const e of graph.edges) {
+      const a = byId[e.from], b = byId[e.to];
+      if (!a || !b || a.x == null || b.x == null) continue;
+      const line = document.createElementNS(NS, "line");
+      line.setAttribute("x1", a.x); line.setAttribute("y1", a.y);
+      line.setAttribute("x2", b.x); line.setAttribute("y2", b.y);
+      line.setAttribute("class", e.body ? "open" : "closed");
+      svg.append(line);
+    }
+    for (const n of [...r2, ...r1, center]) {
+      const g = document.createElementNS(NS, "g");
+      const isMe = n.id === graph.viewer;
+      g.setAttribute("class", `node${isMe ? " me" : ""}`);
+      g.setAttribute("tabindex", "0");
+      g.setAttribute("role", "button");
+      g.setAttribute("aria-label", `${n.name}${n.ring === 0 ? " (가운데)" : ""}`);
+      const r = n.ring === 0 ? 26 : n.ring === 1 ? 20 : 15;
+      const circle = document.createElementNS(NS, "circle");
+      circle.setAttribute("cx", n.x); circle.setAttribute("cy", n.y); circle.setAttribute("r", r);
+      circle.setAttribute("fill", isMe ? "var(--primary)" : n.dist === 1 ? "var(--node-friend)" : n.dist === 2 ? "var(--node-far)" : "var(--node-out)");
+      const initial = document.createElementNS(NS, "text");
+      initial.setAttribute("x", n.x); initial.setAttribute("y", n.y);
+      initial.setAttribute("class", "initial");
+      initial.textContent = n.name.slice(0, 1);
+      const label = document.createElementNS(NS, "text");
+      label.setAttribute("x", n.x); label.setAttribute("y", n.y + r + 13);
+      label.textContent = isMe ? "나" : n.name;
+      g.append(circle, initial, label);
+      const go = () => { if (n.ring !== 0) recenter(n.id); };
+      g.addEventListener("click", go);
+      g.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); go(); } });
+      svg.append(g);
+    }
+
+    $("graphHelp").textContent = r1.length
+      ? "사람을 누르면 그 사람을 가운데에 두고 펼쳐져요."
+      : "아직 이어진 사람이 없어요. 친구에게 묘비명을 부탁해 보세요.";
+    $("backToMe").hidden = center.id === graph.viewer;
+    renderDetail(center, nodes);
+  }
+
+  function renderDetail(center, nodes) {
+    const isMe = center.id === graph.viewer;
+    $("detailTitle").textContent = isMe ? "내 묘비명" : `${center.name}님의 묘비명`;
+    $("detailMemorial").replaceChildren(memorialEl({
+      name: isMe ? profile.display_name : center.name,
+      epitaph: center.epitaph, song: center.song, bgmUrl: center.bgmUrl,
+      lockText: lockReason(center),
+    }));
+    const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
+    const who = (id) => (id === graph.viewer ? "나" : byId[id]?.name || "누군가");
+    const edges = graph.edges.filter((e) => e.from === center.id || e.to === center.id);
+    $("detailEdgesSection").hidden = !edges.length;
+    $("detailEdges").replaceChildren(...edges.map((e) => {
+      const li = document.createElement("li");
+      li.className = "card";
+      li.innerHTML = `<div class="label"></div><div class="text"></div>`;
+      li.querySelector(".label").textContent = `${who(e.from)} → ${who(e.to)}`;
+      const t = li.querySelector(".text");
+      t.textContent = e.body || "🔒 공개되지 않은 묘비명이에요";
+      t.classList.toggle("locked-text", !e.body);
+      return li;
+    }));
+  }
+
+  async function recenter(id) {
+    status("Graph", "");
+    if (await loadGraph(id)) window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function switchTab(tab) {
+    $("tabs").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tab === tab)));
+    $("tabMine").hidden = tab !== "mine";
+    $("tabGraph").hidden = tab !== "graph";
+    $("ctaHome").hidden = tab !== "mine";
+    $("ctaGraph").hidden = tab !== "graph";
+    if (tab === "graph" && graph && graph.center !== me.id) loadGraph(me.id);
+    else if (tab === "graph" && graph) drawGraph();
+  }
+
+  async function showHome(tab = "mine") {
+    showView("Home");
+    $("name").value = profile.display_name || "";
+    $("epitaph").value = profile.epitaph || "";
+    $("bgmUrlInput").value = profile.bgm_url || "";
+    song = profile.song || null;
+    segmented($("myVisibility"), profile.epitaph_visibility, (v) => ($("myVisibilityHelp").textContent = VIS_HELP[v]));
+
+    // 로그인 전에 이 브라우저에 써 둔 묘비명이 있으면 불러오기
+    if (!profile.epitaph) {
+      try {
+        const old = JSON.parse(localStorage.getItem(LEGACY_KEY) || "null");
+        if (old && old.epitaph) {
+          $("epitaph").value = old.epitaph;
+          if (old.name && profile.display_name === "익명") $("name").value = old.name;
+          if (old.song) song = old.song;
+          if (old.bgmUrl) $("bgmUrlInput").value = old.bgmUrl;
+          status("Home", "예전에 써 둔 묘비명을 불러왔어요. 저장하기를 눌러주세요");
+        }
+      } catch {}
+    }
+    renderMine();
+    await loadGraph(me.id);
+    switchTab(tab);
+  }
+
+  // ───── 초대 링크 (?to=사용자ID) ─────
+  async function showInvite(toId) {
+    showView("Invite");
+    const { data: owner } = await sb.rpc("ld_invite", { target: toId });
+    if (!owner) {
+      history.replaceState(null, "", baseUrl());
+      return me ? boot() : (showView("Landing"), status("Landing", "초대 링크가 올바르지 않아요"));
+    }
+    const who = owner.name;
+    $("inviteHeadline").textContent = `${who}님이 묘비명을 부탁했어요`;
+
+    if (!me) {
+      $("inviteSubline").textContent = `카카오로 로그인하고 ${who}님을 어떻게 기억할지 한 줄로 남겨주세요.`;
+      $("inviteStage").replaceChildren(lockedEl(`남겨주면 ${who}님이 스스로 쓴 묘비명을 볼 수 있어요`));
+      $("inviteLogin").hidden = false;
+      return;
+    }
+
+    const { data: mine } = await sb.from("epitaphs").select("body, visibility").eq("from_id", me.id).eq("to_id", toId).maybeSingle();
+    $("inviteHeadline").textContent = mine ? `${who}님에게 남긴 묘비명을 고칠 수 있어요` : `${who}님에게 묘비명을 남겨주세요`;
+    $("inviteSubline").textContent = `${who}님을 어떻게 기억할지 한 줄로 적어주세요.`;
+    $("giftLabel").textContent = `${who}님의 묘비명`;
+    $("inviteForm").hidden = false;
+    $("give").hidden = false;
+    $("give").textContent = mine ? "고쳐서 남겨주기" : "묘비명 남겨주기";
+    $("giftText").value = mine?.body || "";
+
+    const stone = memorialEl({ name: who, epitaph: "", lockText: "" });
+    const ep = stone.querySelector(".epitaph");
     const update = () => {
-      renderPreview({ name: owner.name, epitaph: textEl.value.trim(), song: null, bgmUrl: "" });
-      $("friendCount").textContent = `${textEl.value.length} / 50`;
-      $("give").disabled = !textEl.value.trim();
+      const t = $("giftText").value.trim();
+      ep.textContent = t || "여기에 묘비명이 새겨져요";
+      ep.classList.toggle("placeholder", !t);
+      $("giftCount").textContent = `${$("giftText").value.length} / 50`;
+      $("give").disabled = !t;
     };
-    fromEl.addEventListener("input", update);
-    textEl.addEventListener("input", update);
-    $("friendForm").addEventListener("submit", (e) => e.preventDefault());
+    $("inviteStage").replaceChildren(stone, lockedEl(`남겨주면 ${who}님이 스스로 쓴 묘비명을 볼 수 있어요`));
+    $("giftText").addEventListener("input", update);
+    $("inviteForm").addEventListener("submit", (e) => e.preventDefault());
+    segmented($("giftVisibility"), mine?.visibility || "recipient",
+      (v) => ($("giftVisibilityHelp").textContent = v === "fof" ? VIS_HELP.giftFof : VIS_HELP.recipient));
     update();
 
-    $("give").addEventListener("click", () => {
-      const gift = { from: fromEl.value.trim() || "익명", epitaph: textEl.value.trim(), at: Date.now() };
-      $("friendForm").hidden = $("locked").hidden = $("give").hidden = true;
-      $("headline").textContent = `${who}님이 스스로 남긴 묘비명이에요`;
-      $("subline").textContent = owner.song || owner.bgmUrl ? "좋아하던 노래와 함께 기억해 주세요." : "이 말과 함께 기억해 주세요.";
-      renderPreview(owner);
-      $("myGift").hidden = false;
-      $("myGiftLabel").textContent = "내가 남겨준 묘비명";
-      $("myGiftText").textContent = gift.epitaph;
-      $("status").textContent = `${who}님에게도 보내줘야 도착해요`;
-      $("sendBack").textContent = `${who}님에게 보내기`;
-      $("sendBack").hidden = $("makeMine").hidden = false;
-      $("sendBack").addEventListener("click", () => sendShare(
-        [`${who}님, 묘비명을 지어 보냈어요.`, `“${gift.epitaph}” - ${gift.from}`],
-        `${baseUrl()}#r=${encode(gift)}`,
-      ));
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-    $("makeMine").addEventListener("click", () => { location.href = baseUrl(); });
+    $("give").onclick = async () => {
+      $("give").disabled = true;
+      const body = $("giftText").value.trim();
+      const { error } = await sb.from("epitaphs").upsert(
+        { from_id: me.id, to_id: toId, body, visibility: $("giftVisibility").dataset.value },
+        { onConflict: "from_id,to_id" },
+      );
+      if (error) { $("give").disabled = false; status("Invite", "남기지 못했어요. 잠시 후 다시 시도해 주세요"); return; }
+      await revealOwner(toId, who, body);
+    };
   }
 
-  const hash = location.hash.match(/^#(m|r)=(.+)$/);
-  let incoming = null;
-  if (hash) { try { incoming = decode(hash[2]); } catch {} }
-
-  if (hash && hash[1] === "m" && incoming) {
-    showFriendView(incoming);
-  } else {
-    if (hash && hash[1] === "r") receiveGift(incoming);
-    try {
-      const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-      if (saved) {
-        nameEl.value = saved.name || "";
-        epitaphEl.value = saved.epitaph || "";
-        bgmUrlEl.value = saved.bgmUrl || "";
-        song = saved.song || null;
-        if (!$("status").textContent) $("status").textContent = "저장된 묘비명을 불러왔어요";
-      }
-    } catch {}
-    renderInbox();
-
-    [nameEl, epitaphEl, bgmUrlEl].forEach((el) => el.addEventListener("input", render));
-    $("search").addEventListener("input", (e) => {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => searchSongs(e.target.value.trim()), 350);
-    });
-    $("clearSong").addEventListener("click", () => { audio.pause(); song = null; render(); });
-    $("form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      $("status").textContent = save() ? "묘비명을 남겼어요" : "이 브라우저에서는 저장할 수 없어요";
-    });
-    $("share").addEventListener("click", share);
-    render();
+  function lockedEl(text) {
+    const d = document.createElement("div");
+    d.className = "locked";
+    d.textContent = `🔒 ${text}`;
+    return d;
   }
+
+  async function revealOwner(toId, who, body) {
+    const { data } = await sb.rpc("ld_graph", { center: toId });
+    graph = data;
+    const node = data?.nodes.find((n) => n.id === toId) || { hasEpitaph: false };
+    $("inviteForm").hidden = $("give").hidden = true;
+    $("inviteHeadline").textContent = `${who}님이 스스로 남긴 묘비명이에요`;
+    $("inviteSubline").textContent = node.epitaph ? "좋아하는 노래와 함께 기억해 주세요." : "";
+    $("inviteStage").replaceChildren(memorialEl({ name: who, epitaph: node.epitaph, song: node.song, bgmUrl: node.bgmUrl, lockText: lockReason(node) }));
+    $("myGiftCard").hidden = false;
+    $("myGiftText").textContent = body;
+    $("goHome").hidden = $("goGraph").hidden = false;
+    status("Invite", `${who}님에게 묘비명이 도착했어요`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // ───── 시작 ─────
+  async function boot() {
+    const { data: { session } } = await sb.auth.getSession();
+    me = session?.user || null;
+    const toId = new URLSearchParams(location.search).get("to");
+    if (toId && toId !== me?.id) return showInvite(toId);
+    if (toId) history.replaceState(null, "", baseUrl());
+    if (!me) return showView("Landing");
+
+    const { data, error } = await sb.from("people").select("*").eq("id", me.id).single();
+    if (error) { showView("Landing"); status("Landing", "내 정보를 불러오지 못했어요. 다시 로그인해 주세요"); return; }
+    profile = data;
+    showHome();
+  }
+
+  $("goHome").addEventListener("click", () => { history.replaceState(null, "", baseUrl()); boot(); });
+  $("goGraph").addEventListener("click", async () => { history.replaceState(null, "", baseUrl()); await boot(); switchTab("graph"); });
+  $("logout").addEventListener("click", async () => { await sb.auth.signOut(); location.href = baseUrl(); });
+  $("tabs").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.tab)));
+  $("backToMe").addEventListener("click", () => recenter(me.id));
+  ["name", "epitaph", "bgmUrlInput"].forEach((id) => $(id).addEventListener("input", renderMine));
+  $("search").addEventListener("input", (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => searchSongs(e.target.value.trim()), 350);
+  });
+  $("playBtn").addEventListener("click", () => song && togglePlay($("playBtn"), song.preview));
+  $("clearSong").addEventListener("click", () => { audio.pause(); song = null; renderMine(); });
+  $("form").addEventListener("submit", saveProfile);
+  $("share").addEventListener("click", () => sendShare("Home",
+    [`${$("name").value.trim() || "내"} 묘비명을 지어줘.`, "남겨주면 내가 스스로 쓴 묘비명을 보여줄게."],
+    `${baseUrl()}?to=${me.id}`,
+  ));
+
+  boot();
 </script>
 </body>
 </html>
